@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Log Inspector</title>
+    <!-- import the jquery library -->
+    <script src="{{ url_for('static',filename='js/jquery.min.js') }}"></script>
+    <!-- import the socket.io library -->
+    <script src="{{ url_for('static',filename='js/socket.io.js') }}"></script>
+
+    <style>
+      .content {
+        width: 100%;
+      }
+      .container{
+        max-width: none;
+      }
+    </style>
+    <!--CSS to format the layout of our web page -->
+    <link rel="stylesheet" href="{{url_for('static',filename='css/materialize.min.css')}}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  </head>
+  
+  <body class="container">
+    <div class="content">
+      <form method='post' id="startWatcherForm" action="/startWatcher">
+        <div>
+           <input id="inpFolder" name="inpFolder" placeholder="Enter the path for the folder to monitor" type="text">
+           <label for="inpFolder">Enter The Path Of The Folder To Watch</label>
+        </div>
+        <button style="float:left;height:50px;width:400px" type="submit" id="startWatcher">Start Watcher</button>
+      </form>
+
+      <form method='post' id="stopWatcherForm" action="/stopWatcher">
+          <button style="float:right;height:50px;width:400px" type="submit" id="stopWatcher">Stop Watcher</button>
+      </form>
+    </div>
+    <div class="content">
+        <div id="Messages" class="content" style="height:400px;width:805px; border:1px solid gray; overflow-y:scroll;"></div>
+    </div>
+
+    <script>
+      $(document).ready(function(){
+        //Reserved for websocket manipulation
+        var namespace='/logWatcher';
+        var url = 'http://' + document.domain + ':' + location.port + namespace;
+        var socket = io.connect(url);
+        socket.on('connect', function() {
+                             socket.emit('join_room');
+                            });
+
+        socket.on('msg' , function(data) {
+                            //Normal Event
+                            var newLine = $('<li>'+data.msg+'</li>');
+                            newLine.css("color","blue");
+                            $("#Messages").prepend(newLine);
+                          });
+
+        socket.on('observation' , function(data) {
+                            //Suspicious Event With Observation
+                            var newLine = $('<li>'+data.msg+'</li>');
+                            newLine.css("color","red");
+                            $("#Messages").prepend(newLine);
+                          });
+
+        socket.on('status', function(data) {
+                            var newLine = $('<li>'+data.msg+'</li>');
+                            newLine.css("color","green");
+                            $("#Messages").prepend(newLine);
+                          });
+      });
+    </script>
+
+
+
+    <script>
+      $("#startWatcher").click(function(e) {
+         //Empty the messages box
+         $("#Messages").empty();
+         //Initiate an ajax call
+         $.ajax({ type: "Post"
+                  //Map to the flask endpoint
+                , url: '/execWatcher'
+                , data: $("#startWatcherForm").serialize()
+                , success: function(data) {
+                    //alert("Success Start Watcher");
+                  }
+                });
+         //Prevents the browser from executing the default action
+         e.preventDefault();
+         //Log the event
+         console.log('/startWatcher complete');
+      });
+
+      $("#stopWatcher").click(function(e) {
+         //Disable the button
+         $("stopWatcher").attr("disabled",true);
+         //Change the cursor state
+         $("*").css("cursor","wait");
+         //Initiate an ajax call
+         $.ajax({ type: "Post"
+                  //Map to the flask endpoint
+                , url: '/stopWatcher'
+                , data: $("#stopWatcherForm").serialize()
+                , success: function(data) {
+                    //Enable the button
+                    $("#stopWatcher").attr("disabled",false);
+                    //Revert back the cursor state
+                    $("*").css("cursor","");
+                  }
+                });
+         //Prevents the browser from executing the default action
+         e.preventDefault();
+         //Log the event
+         console.log('/stopWatcher complete');
+      });
+    </script>
+  </body>
+</html>
